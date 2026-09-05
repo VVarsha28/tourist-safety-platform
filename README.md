@@ -1,5 +1,5 @@
 # SafeTrail — Tourist Safety & Regional Command Platform
-**Nexora Round 2 Submission**
+
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Online-10B981?style=for-the-badge&logo=render&logoColor=white)](https://tourist-safety-platform.onrender.com)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/VVarsha28/tourist-safety-platform)
