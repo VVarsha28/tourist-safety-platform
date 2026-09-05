@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Safety Alerts — SafeTrail{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto w-full pb-24 px-4 pt-4">
+
+    <!-- Header Navigation Back -->
+    <div class="flex items-center justify-between mb-4">
+        <a href="{{ url_for('tourist.home') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
+            <i class="fa-solid fa-arrow-left"></i> Back to Safety Hub
+        </a>
+        <span class="text-xs font-semibold text-slate-500">
+            {{ alerts|length }} total alerts
+        </span>
+    </div>
+
+    <div class="mb-4 flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-extrabold text-slate-900 tracking-tight">Active Safety Alerts</h1>
+            <p class="text-xs text-slate-500">Automated geofence warnings, civic advisories, and emergency alerts</p>
+        </div>
+        <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-bell"></i>
+        </div>
+    </div>
+
+    <!-- Alerts Feed -->
+    <div class="space-y-3">
+        {% if alerts %}
+            {% for alert in alerts %}
+                {% set card_bg = 'bg-white border-slate-200' %}
+                {% set badge_bg = 'bg-sky-100 text-sky-800' %}
+                {% set icon_color = 'text-sky-500' %}
+                {% set icon = 'fa-circle-info' %}
+
+                {% if alert.severity == 'danger' %}
+                    {% set card_bg = 'bg-rose-50/70 border-rose-300' %}
+                    {% set badge_bg = 'bg-rose-600 text-white' %}
+                    {% set icon_color = 'text-rose-600' %}
+                    {% set icon = 'fa-triangle-exclamation' %}
+                {% elif alert.severity == 'caution' %}
+                    {% set card_bg = 'bg-amber-50/70 border-amber-300' %}
+                    {% set badge_bg = 'bg-amber-500 text-white' %}
+                    {% set icon_color = 'text-amber-600' %}
+                    {% set icon = 'fa-triangle-exclamation' %}
+                {% endif %}
+
+                <div class="rounded-2xl border p-4 shadow-sm {{ card_bg }} transition-all relative">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start space-x-3">
+                            <div class="w-8 h-8 rounded-xl bg-white shadow-xs flex items-center justify-center {{ icon_color }} text-base flex-shrink-0 mt-0.5">
+                                <i class="fa-solid {{ icon }}"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] uppercase font-black px-2 py-0.5 rounded-full {{ badge_bg }}">
+                                        {{ alert.severity }}
+                                    </span>
+                                    <span class="text-[11px] text-slate-400 font-mono">
+                                        {{ alert.timestamp.strftime('%H:%M • %b %d') }}
+                                    </span>
+                                </div>
+                                <h3 class="font-bold text-sm text-slate-900 mt-1">{{ alert.title }}</h3>
+                                <p class="text-xs text-slate-700 mt-1 leading-relaxed">{{ alert.message }}</p>
+
+                                {% if alert.suggested_action %}
+                                <div class="mt-2.5 p-2 bg-white/80 rounded-xl border border-slate-200/80 text-[11px] text-slate-700 flex items-center gap-2">
+                                    <i class="fa-solid fa-lightbulb text-amber-500"></i>
+                                    <span><strong class="font-bold text-slate-900">Advice:</strong> {{ alert.suggested_action }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Dismiss Form -->
+                        <form method="POST" action="{{ url_for('tourist.dismiss_alert', alert_id=alert.id) }}">
+                            <button type="submit" title="Dismiss Alert" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-black/5 transition">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="bg-white rounded-2xl p-8 text-center border border-slate-200 shadow-sm">
+                <div class="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xl mx-auto mb-2">
+                    <i class="fa-solid fa-shield-heart"></i>
+                </div>
+                <h3 class="font-bold text-sm text-slate-900">All Clear in Your Area</h3>
+                <p class="text-xs text-slate-500 mt-1">No active caution warnings or geofence breaches detected.</p>
+            </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

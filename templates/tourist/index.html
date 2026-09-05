@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Tourist Safety Hub — SafeTrail{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tourist.css') }}">
+<style>
+    #tourist-map {
+        height: 380px;
+        width: 100%;
+        border-radius: 1.25rem;
+        z-index: 10;
+    }
+    @media (min-width: 768px) {
+        #tourist-map {
+            height: 480px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto w-full pb-24 px-3 sm:px-4 pt-2">
+    
+    <!-- Top Tourist Header Card -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <a href="{{ url_for('tourist.profile') }}" class="relative group">
+                <img src="{{ profile.photo_url or '/static/img/default-avatar.png' }}" alt="Profile" class="w-12 h-12 rounded-xl object-cover border-2 border-sky-500 shadow-sm">
+                <span class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></span>
+            </a>
+            <div>
+                <div class="text-xs text-slate-500 font-medium">SafeTrail Protected</div>
+                <div class="font-extrabold text-slate-900 text-base leading-tight">{{ current_user.name }}</div>
+                <div class="text-[11px] text-slate-400 font-mono">{{ profile.digital_id_code }}</div>
+            </div>
+        </div>
+
+        <!-- Live AI Safety Score Traffic Light -->
+        <div id="safety-score-card" class="text-right flex flex-col items-end">
+            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Safety Score</span>
+            <div class="flex items-center gap-1.5 mt-0.5">
+                <span id="score-dot" class="w-3 h-3 rounded-full" style="background-color: {{ risk_data.color }};"></span>
+                <span id="score-number" class="text-xl font-black text-slate-900">{{ risk_data.score }}</span>
+                <span class="text-xs font-semibold text-slate-400">/100</span>
+            </div>
+            <span id="score-label" class="text-[10px] font-bold px-2 py-0.5 rounded-full {{ risk_data.badge_class }} border mt-0.5">
+                {{ risk_data.level }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Active SOS Status Tracker (Shown dynamically when SOS is active) -->
+    <div id="sos-active-banner" class="{% if not active_sos %}hidden{% endif %} mb-4 bg-gradient-to-r from-rose-900 via-red-800 to-rose-950 text-white rounded-2xl p-4 shadow-xl border-2 border-rose-500 animate-pulse">
+        <div class="flex items-start justify-between">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-full bg-rose-600 flex items-center justify-center text-white font-bold">
+                    <i class="fa-solid fa-tower-broadcast"></i>
+                </div>
+                <div>
+                    <h3 class="font-black text-sm tracking-wide uppercase">EMERGENCY SOS BROADCAST ACTIVE</h3>
+                    <p class="text-xs text-rose-200">Authorities and emergency responders have your live location.</p>
+                </div>
+            </div>
+            <span id="sos-status-badge" class="px-2.5 py-1 rounded-full text-xs font-black uppercase bg-rose-500 text-white shadow">
+                {{ active_sos.status if active_sos else 'active' }}
+            </span>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="mt-4 pt-3 border-t border-rose-700/60">
+            <div class="grid grid-cols-4 gap-1 text-center text-[10px] font-bold">
+                <div id="step-active" class="py-1 px-1 rounded bg-rose-700 text-white">1. Triggered</div>
+                <div id="step-acknowledged" class="py-1 px-1 rounded {% if active_sos and active_sos.status in ['acknowledged', 'dispatched', 'resolved'] %}bg-rose-700 text-white{% else %}bg-rose-950/60 text-rose-400{% endif %}">2. Acknowledged</div>
+                <div id="step-dispatched" class="py-1 px-1 rounded {% if active_sos and active_sos.status in ['dispatched', 'resolved'] %}bg-rose-700 text-white{% else %}bg-rose-950/60 text-rose-400{% endif %}">3. Dispatched</div>
+                <div id="step-resolved" class="py-1 px-1 rounded {% if active_sos and active_sos.status == 'resolved' %}bg-emerald-600 text-white{% else %}bg-rose-950/60 text-rose-400{% endif %}">4. Resolved</div>
+            </div>
+        </div>
+
+        <!-- Voice / Text Note Input -->
+        <div class="mt-3 bg-black/30 rounded-xl p-2.5">
+            <label class="block text-[11px] font-bold text-rose-200 mb-1">Add details for responders (e.g. "Injured knee, near gate"):</label>
+            <div class="flex gap-2">
+                <input id="sos-note-input" type="text" value="{{ active_sos.voice_note_text if active_sos else '' }}" placeholder="Type note or spoken description..." class="flex-1 px-3 py-1.5 bg-white/10 text-white placeholder-rose-300 text-xs rounded-lg border border-rose-600/50 focus:outline-none focus:ring-1 focus:ring-white">
+                <button onclick="updateSOSNote()" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg transition">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active High Priority Banner Alert -->
+    <div id="zone-alert-banner" class="hidden mb-3 p-3.5 bg-amber-500/15 border border-amber-500/40 rounded-2xl flex items-start gap-3">
+        <div class="text-amber-600 text-lg mt-0.5">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="flex-1">
+            <h4 id="zone-alert-title" class="font-bold text-xs text-amber-900 uppercase tracking-wide">Caution Zone Active</h4>
+            <p id="zone-alert-msg" class="text-xs text-amber-800 mt-0.5 leading-relaxed">Heightened vigilance advised in this sector.</p>
+            <p id="zone-alert-action" class="text-[11px] text-amber-700 font-semibold mt-1"></p>
+        </div>
+        <button onclick="document.getElementById('zone-alert-banner').classList.add('hidden')" class="text-amber-700 text-xs hover:text-amber-900">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <!-- Location Simulator & Controls Bar (Essential for Demoing!) -->
+    <div class="bg-white rounded-2xl p-3 shadow-sm border border-slate-200 mb-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-1.5 font-bold text-slate-700">
+            <i class="fa-solid fa-location-crosshairs text-sky-600"></i>
+            <span>Demo Location:</span>
+        </div>
+        <div class="flex items-center gap-2 flex-1 sm:flex-initial">
+            <select id="location-simulator" onchange="simulateLocationChange(this.value)" class="w-full sm:w-auto px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-medium text-slate-700 focus:ring-sky-500 focus:border-sky-500">
+                <option value="gps">📡 Browser GPS (Live)</option>
+                <option value="palace" {% if current_zone and current_zone.risk_level == 'safe' %}selected{% endif %}>🟢 Safe Zone: City Palace (Heritage Corridor)</option>
+                <option value="bazaar" {% if current_zone and current_zone.risk_level == 'caution' %}selected{% endif %}>🟠 Caution Zone: Johari Bazaar Market</option>
+                <option value="mountain" {% if current_zone and current_zone.risk_level == 'restricted' %}selected{% endif %}>🔴 Restricted Zone: Nahargarh Mountain Pass</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Leaflet Safety Map -->
+    <div class="relative rounded-2xl overflow-hidden shadow-md border border-slate-200 mb-3">
+        <div id="tourist-map"></div>
+        
+        <!-- Legend Overlay -->
+        <div class="absolute bottom-3 left-3 bg-white/95 backdrop-blur px-3 py-2 rounded-xl shadow-lg border border-slate-200 z-[400] text-[10px] space-y-1">
+            <div class="font-bold text-slate-800 uppercase tracking-wider mb-1">Zone Threat Level</div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Safe Heritage Zone</div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span> Caution Commercial Sector</div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span> Restricted Mountain Bypass</div>
+        </div>
+
+        <!-- Recenter Button -->
+        <button onclick="recenterMap()" class="absolute top-3 right-3 bg-white hover:bg-slate-50 text-slate-800 p-2.5 rounded-xl shadow-md border border-slate-200 z-[400] text-xs font-bold transition flex items-center gap-1">
+            <i class="fa-solid fa-crosshairs text-sky-600"></i>
+        </button>
+    </div>
+
+    <!-- Quick Action Grid -->
+    <div class="grid grid-cols-3 gap-2.5 mb-4">
+        <a href="{{ url_for('tourist.digital_id') }}" class="p-3 bg-white hover:bg-sky-50 rounded-2xl border border-slate-200 shadow-sm transition text-center flex flex-col items-center">
+            <div class="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center text-base mb-1.5">
+                <i class="fa-solid fa-qrcode"></i>
+            </div>
+            <span class="text-xs font-bold text-slate-800">Digital ID</span>
+            <span class="text-[10px] text-slate-400">QR & Pass</span>
+        </a>
+
+        <a href="{{ url_for('tourist.report_incident') }}" class="p-3 bg-white hover:bg-amber-50 rounded-2xl border border-slate-200 shadow-sm transition text-center flex flex-col items-center">
+            <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-base mb-1.5">
+                <i class="fa-solid fa-flag"></i>
+            </div>
+            <span class="text-xs font-bold text-slate-800">Report</span>
+            <span class="text-[10px] text-slate-400">Theft / Scam</span>
+        </a>
+
+        <a href="{{ url_for('tourist.resources') }}" class="p-3 bg-white hover:bg-indigo-50 rounded-2xl border border-slate-200 shadow-sm transition text-center flex flex-col items-center">
+            <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-base mb-1.5">
+                <i class="fa-solid fa-book-medical"></i>
+            </div>
+            <span class="text-xs font-bold text-slate-800">Resources</span>
+            <span class="text-[10px] text-slate-400">Helplines & POIs</span>
+        </a>
+    </div>
+
+    <!-- AI Safety Assistant Chat Widget Drawer -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 text-white flex items-center justify-center text-sm shadow-sm">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-xs text-slate-900">SafeTrail AI Safety Assistant</h3>
+                    <p class="text-[10px] text-slate-400">Grounded with local emergency protocols</p>
+                </div>
+            </div>
+            <span class="text-[10px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded-full">Active</span>
+        </div>
+
+        <!-- Chat Messages Window -->
+        <div id="chat-messages" class="h-44 overflow-y-auto space-y-2.5 p-2 bg-slate-50 rounded-xl text-xs">
+            <div class="flex gap-2 items-start">
+                <div class="w-6 h-6 rounded-full bg-sky-600 text-white flex-shrink-0 flex items-center justify-center text-[10px]">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <div class="bg-white p-2.5 rounded-2xl rounded-tl-none border border-slate-200 shadow-xs max-w-[85%] text-slate-700">
+                    Hello {{ current_user.name }}! I am your AI Safety Assistant. Ask me about hospital locations, police contact, scam warnings, or emergency actions in your sector.
+                </div>
+            </div>
+        </div>
+
+        <!-- Suggested Quick Prompts -->
+        <div class="flex gap-1.5 overflow-x-auto py-2 text-[11px] no-scrollbar">
+            <button onclick="sendQuickPrompt('Where is the nearest hospital?')" class="flex-shrink-0 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-sky-100 text-slate-700 hover:text-sky-800 border border-slate-200 transition font-medium">
+                🏥 Nearest Hospital
+            </button>
+            <button onclick="sendQuickPrompt('Is it safe to walk here after 9 PM?')" class="flex-shrink-0 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-sky-100 text-slate-700 hover:text-sky-800 border border-slate-200 transition font-medium">
+                🌙 Night Safety
+            </button>
+            <button onclick="sendQuickPrompt('What do I do if I lose my passport?')" class="flex-shrink-0 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-sky-100 text-slate-700 hover:text-sky-800 border border-slate-200 transition font-medium">
+                🛂 Lost Passport
+            </button>
+        </div>
+
+        <!-- Chat Input -->
+        <form id="ai-chat-form" onsubmit="handleChatSubmit(event)" class="mt-1 flex gap-2">
+            <input id="chat-input" type="text" placeholder="Ask a safety question..." class="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-sky-500 focus:border-sky-500">
+            <button type="submit" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs transition">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </form>
+    </div>
+
+</div>
+
+<!-- ALWAYS-ACCESSIBLE FLOATING RED SOS BUTTON (Thumb-reachable on mobile) -->
+<div class="fixed bottom-20 right-4 sm:right-8 z-40">
+    <button id="sos-fab" onclick="openSOSModal()" class="relative group w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-red-600 via-rose-600 to-red-700 text-white font-black flex flex-col items-center justify-center shadow-2xl shadow-rose-600/60 border-4 border-white hover:scale-105 active:scale-95 transition-all">
+        <span class="absolute -inset-1 rounded-full bg-red-500/40 animate-ping"></span>
+        <i class="fa-solid fa-triangle-exclamation text-xl sm:text-2xl mb-0.5"></i>
+        <span class="text-[11px] sm:text-xs font-black tracking-wider uppercase">SOS</span>
+    </button>
+</div>
+
+<!-- SOS 3-SECOND CONFIRMATION COUNTDOWN MODAL -->
+<div id="sos-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl border-4 border-rose-500 animate-fade-in">
+        <div class="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-3xl mx-auto mb-3 animate-pulse">
+            <i class="fa-solid fa-bell"></i>
+        </div>
+        <h3 class="text-xl font-black text-slate-900 tracking-tight">TRIGGER EMERGENCY SOS?</h3>
+        <p class="text-xs text-slate-600 mt-1">Dispatches GPS coordinates, medical profile, and alerts authorities immediately.</p>
+        
+        <!-- Countdown Circular Ring -->
+        <div class="my-5 flex items-center justify-center">
+            <div class="w-24 h-24 rounded-full border-4 border-rose-500 flex items-center justify-center bg-rose-50">
+                <span id="sos-countdown" class="text-4xl font-black text-rose-600">3</span>
+            </div>
+        </div>
+
+        <div class="text-[11px] text-slate-500 mb-4">
+            Simulating SMS alert to <span class="font-bold text-slate-800">{{ profile.emergency_contact_name or 'Emergency Contact' }}</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+            <button onclick="cancelSOSCountdown()" class="py-2.5 px-4 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs transition">
+                Cancel
+            </button>
+            <button onclick="executeSOSImmediate()" class="py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition shadow-md">
+                Send NOW!
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MOBILE BOTTOM NAVIGATION BAR -->
+<nav class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-slate-200 z-30 shadow-lg">
+    <div class="max-w-2xl mx-auto grid grid-cols-5 h-16">
+        <a href="{{ url_for('tourist.home') }}" class="flex flex-col items-center justify-center text-sky-600">
+            <i class="fa-solid fa-map-location-dot text-lg"></i>
+            <span class="text-[10px] font-bold mt-1">Explore</span>
+        </a>
+        <a href="{{ url_for('tourist.alerts') }}" class="flex flex-col items-center justify-center text-slate-500 hover:text-sky-600 relative">
+            <i class="fa-solid fa-bell text-lg"></i>
+            <span class="text-[10px] font-medium mt-1">Alerts</span>
+            {% if unread_alerts > 0 %}
+            <span class="absolute top-2 right-6 w-2 h-2 rounded-full bg-rose-500"></span>
+            {% endif %}
+        </a>
+        <div class="flex flex-col items-center justify-center">
+            <!-- Blank spacer for thumb SOS button -->
+        </div>
+        <a href="{{ url_for('tourist.report_incident') }}" class="flex flex-col items-center justify-center text-slate-500 hover:text-sky-600">
+            <i class="fa-solid fa-bullhorn text-lg"></i>
+            <span class="text-[10px] font-medium mt-1">Report</span>
+        </a>
+        <a href="{{ url_for('tourist.profile') }}" class="flex flex-col items-center justify-center text-slate-500 hover:text-sky-600">
+            <i class="fa-solid fa-user-shield text-lg"></i>
+            <span class="text-[10px] font-medium mt-1">Profile</span>
+        </a>
+    </div>
+</nav>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/tourist_app.js') }}"></script>
+{% endblock %}

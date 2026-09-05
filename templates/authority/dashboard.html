@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block title %}Regional Command Operations Dashboard — SafeTrail{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/authority.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    #authority-map {
+        height: 520px;
+        width: 100%;
+        border-radius: 1.25rem;
+    }
+    .custom-sos-marker {
+        animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    @keyframes pulse-ring {
+        0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+        100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 flex-1 flex flex-col space-y-5">
+
+    <!-- Top Command Status & Fast Switcher Bar -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 text-white p-4 rounded-3xl border border-slate-800 shadow-xl">
+        <div class="flex items-center space-x-3.5">
+            <div class="w-11 h-11 rounded-2xl bg-indigo-600 flex items-center justify-center text-white text-xl shadow-lg shadow-indigo-500/30">
+                <i class="fa-solid fa-tower-observation"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="text-base sm:text-lg font-extrabold tracking-tight">Jaipur Regional Safety Operations Center</h1>
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> LIVE TELEMETRY
+                    </span>
+                </div>
+                <p class="text-xs text-slate-400">Sector Control: Zone A, B & C • Continuous 5-Second Telemetry Sync</p>
+            </div>
+        </div>
+
+        <!-- Quick Demo Switcher link for presentations -->
+        <div class="flex items-center gap-2 self-start md:self-auto">
+            <span class="text-xs text-slate-400 hidden sm:inline">Switch Demo Profile:</span>
+            <a href="{{ url_for('auth.demo_login', demo_type='carlos') }}" class="px-2.5 py-1.5 rounded-xl bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/80 text-xs font-bold transition flex items-center gap-1.5">
+                <i class="fa-solid fa-bell animate-pulse"></i> Carlos (SOS)
+            </a>
+            <a href="{{ url_for('auth.demo_login', demo_type='elena') }}" class="px-2.5 py-1.5 rounded-xl bg-amber-950/70 hover:bg-amber-900 text-amber-300 border border-amber-800/80 text-xs font-bold transition flex items-center gap-1.5">
+                <i class="fa-solid fa-triangle-exclamation"></i> Elena (Caution)
+            </a>
+            <button onclick="pollTelemetry(true)" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Manual Sync">
+                <i class="fa-solid fa-arrows-rotate" id="sync-icon"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- 4 Key Telemetry Metric Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+                <div class="text-[11px] uppercase font-bold text-slate-400 tracking-wider">Monitored Tourists</div>
+                <div id="stat-total-tourists" class="text-2xl font-black text-slate-900 mt-1">{{ active_tourists_count }}</div>
+                <div class="text-[11px] text-emerald-600 font-semibold mt-0.5"><i class="fa-solid fa-wifi mr-1"></i>Telemetry active</div>
+            </div>
+            <div class="w-11 h-11 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-users"></i>
+            </div>
+        </div>
+
+        <div id="card-active-sos" class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between transition-all">
+            <div>
+                <div class="text-[11px] uppercase font-bold text-slate-400 tracking-wider">Active SOS Alarms</div>
+                <div id="stat-active-sos" class="text-2xl font-black text-rose-600 mt-1">{{ active_sos_count }}</div>
+                <div id="stat-sos-desc" class="text-[11px] text-rose-500 font-semibold mt-0.5">
+                    {% if active_sos_count > 0 %}Immediate Response Required{% else %}No active distress signals{% endif %}
+                </div>
+            </div>
+            <div class="w-11 h-11 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl {% if active_sos_count > 0 %}animate-pulse{% endif %}">
+                <i class="fa-solid fa-bell"></i>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+                <div class="text-[11px] uppercase font-bold text-slate-400 tracking-wider">Pending Incidents</div>
+                <div id="stat-pending-incidents" class="text-2xl font-black text-amber-600 mt-1">{{ pending_incidents_count }}</div>
+                <div class="text-[11px] text-slate-500 font-medium mt-0.5">In triage / review</div>
+            </div>
+            <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-clipboard-list"></i>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+                <div class="text-[11px] uppercase font-bold text-slate-400 tracking-wider">High-Risk Zones</div>
+                <div class="text-2xl font-black text-slate-900 mt-1">2</div>
+                <div class="text-[11px] text-slate-500 font-medium mt-0.5">Bazaar & Mountain Pass</div>
+            </div>
+            <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-draw-polygon"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Command Workspace (Map + Right Side Consoles) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        
+        <!-- Live Operations Map (Left 7 Columns) -->
+        <div class="lg:col-span-7 bg-white rounded-3xl p-4 shadow-sm border border-slate-200 space-y-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                    <h2 class="font-extrabold text-sm text-slate-900">Regional Live Surveillance Map</h2>
+                </div>
+                <!-- Layer Filter Badges -->
+                <div class="flex items-center gap-1 text-[11px] font-semibold">
+                    <span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">Safe</span>
+                    <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">Caution</span>
+                    <span class="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200">Restricted</span>
+                </div>
+            </div>
+
+            <div class="relative">
+                <div id="authority-map"></div>
+
+                <!-- Floating map legend -->
+                <div class="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur text-white px-3 py-2 rounded-xl shadow-lg border border-slate-700 z-[400] text-[10px] space-y-1">
+                    <div class="font-bold uppercase tracking-wider text-slate-300">Surveillance Pins</div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping inline-block"></span> Active SOS Emergency</div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-500 inline-block"></span> Active Tourist Pin</div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block"></span> Police / Hospital POI</div>
+                </div>
+            </div>
+            
+            <div class="text-[11px] text-slate-400 flex items-center justify-between pt-1">
+                <span>Click any tourist dot or SOS beacon to inspect complete medical vitals snapshot.</span>
+                <span id="last-sync-time" class="font-mono">Sync: Ready</span>
+            </div>
+        </div>
+
+        <!-- Right Side Consoles (Right 5 Columns) -->
+        <div class="lg:col-span-5 bg-white rounded-3xl p-5 shadow-sm border border-slate-200 space-y-4">
+            
+            <!-- Navigation Tabs -->
+            <div class="flex p-1 bg-slate-100 rounded-2xl text-xs font-bold text-slate-600">
+                <button onclick="switchTab('sos')" id="tab-btn-sos" class="flex-1 py-2 rounded-xl bg-white text-rose-600 shadow-xs transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-bell"></i>
+                    <span>SOS Console (<span id="sos-tab-count">0</span>)</span>
+                </button>
+                <button onclick="switchTab('incidents')" id="tab-btn-incidents" class="flex-1 py-2 rounded-xl text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Incidents (<span id="inc-tab-count">0</span>)</span>
+                </button>
+                <button onclick="switchTab('lookup')" id="tab-btn-lookup" class="flex-1 py-2 rounded-xl text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-id-card"></i>
+                    <span>ID Lookup</span>
+                </button>
+            </div>
+
+            <!-- TAB 1: SOS CONSOLE -->
+            <div id="tab-content-sos" class="space-y-3">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-700 pb-1 border-b border-slate-100">
+                    <span>Active & Priority Distress Queue</span>
+                    <span class="text-[11px] text-rose-600 font-mono">Live Sync</span>
+                </div>
+                <div id="sos-events-container" class="space-y-2.5 max-h-[440px] overflow-y-auto pr-1">
+                    <!-- Dynamic SOS cards loaded via JS -->
+                    <div class="p-6 text-center text-slate-400 text-xs">Loading emergency events...</div>
+                </div>
+            </div>
+
+            <!-- TAB 2: INCIDENT QUEUE -->
+            <div id="tab-content-incidents" class="space-y-3 hidden">
+                <div class="flex items-center justify-between">
+                    <div class="text-xs font-bold text-slate-700">Incident Triage Feed</div>
+                    <select id="incident-filter" onchange="filterIncidents(this.value)" class="text-[11px] px-2 py-1 bg-slate-50 border border-slate-300 rounded-lg font-semibold">
+                        <option value="all">All Statuses</option>
+                        <option value="submitted">Submitted Only</option>
+                        <option value="under_review">Under Review</option>
+                        <option value="resolved">Resolved</option>
+                    </select>
+                </div>
+                <div id="incidents-container" class="space-y-2.5 max-h-[440px] overflow-y-auto pr-1">
+                    <!-- Dynamic incident cards loaded via JS -->
+                </div>
+            </div>
+
+            <!-- TAB 3: TOURIST ID LOOKUP -->
+            <div id="tab-content-lookup" class="space-y-3 hidden">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-700 mb-1">Verify Digital Tourist ID / Name</label>
+                    <div class="flex gap-2">
+                        <input id="lookup-input" type="text" placeholder="e.g. ST-2026-ESP-4109 or Elena" class="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs focus:ring-sky-500 focus:border-sky-500">
+                        <button onclick="performTouristLookup()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition">
+                            <i class="fa-solid fa-magnifying-glass mr-1"></i> Verify
+                        </button>
+                    </div>
+                </div>
+                <div id="lookup-results-container" class="space-y-2 max-h-[380px] overflow-y-auto">
+                    <div class="p-6 text-center text-slate-400 text-xs">
+                        Enter a Digital ID or tourist name to retrieve authorized medical records, passport data, and travel dates.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Analytics Dashboard Section (Bottom) -->
+    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
+            <div>
+                <h2 class="text-base font-extrabold text-slate-900 tracking-tight">Regional Tourist Safety Analytics</h2>
+                <p class="text-xs text-slate-500">Incident breakdown by threat category and geographic containment zone</p>
+            </div>
+            <div class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-base">
+                <i class="fa-solid fa-chart-pie"></i>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Doughnut Chart: Incidents by Type -->
+            <div class="p-4 bg-slate-50/70 rounded-2xl border border-slate-200 flex flex-col items-center">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Reported Incidents by Category</h3>
+                <div class="w-full max-w-[280px] h-[220px]">
+                    <canvas id="chart-incident-types"></canvas>
+                </div>
+            </div>
+
+            <!-- Bar Chart: Incidents by Zone -->
+            <div class="p-4 bg-slate-50/70 rounded-2xl border border-slate-200 flex flex-col items-center">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Incident Density by Zone</h3>
+                <div class="w-full h-[220px]">
+                    <canvas id="chart-zone-density"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- AUTHORIZED TOURIST FULL MEDICAL SNAPSHOT MODAL -->
+<div id="tourist-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto animate-fade-in text-xs">
+        <div class="flex items-start justify-between pb-4 border-b border-slate-100">
+            <div class="flex items-center space-x-3">
+                <img id="modal-photo" src="" alt="Tourist" class="w-16 h-16 rounded-2xl object-cover border-2 border-indigo-600 shadow">
+                <div>
+                    <h3 id="modal-name" class="text-lg font-extrabold text-slate-900">Tourist Name</h3>
+                    <p id="modal-digital-id" class="font-mono text-indigo-600 font-bold">ST-2026-XXXX</p>
+                    <span id="modal-nationality" class="text-slate-500 font-medium">Nationality</span>
+                </div>
+            </div>
+            <button onclick="closeTouristModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="my-4 space-y-3">
+            <!-- Medical Snapshot Grid -->
+            <div class="bg-rose-50/70 p-4 rounded-2xl border border-rose-200 space-y-2">
+                <h4 class="font-bold uppercase tracking-wide text-rose-800 text-[11px] flex items-center gap-1.5">
+                    <i class="fa-solid fa-notes-medical"></i> Critical Medical Snapshot
+                </h4>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div><span class="text-slate-500">Blood Group:</span> <strong id="modal-blood" class="text-slate-900 font-extrabold">O+</strong></div>
+                    <div><span class="text-slate-500">Passport No:</span> <strong id="modal-passport" class="text-slate-900 font-mono">ESP-88294109</strong></div>
+                    <div class="col-span-2"><span class="text-slate-500">Known Allergies:</span> <strong id="modal-allergies" class="text-rose-700">None</strong></div>
+                    <div class="col-span-2"><span class="text-slate-500">Medical Conditions:</span> <strong id="modal-conditions" class="text-slate-900">None</strong></div>
+                </div>
+            </div>
+
+            <!-- Emergency Contact -->
+            <div class="bg-amber-50/70 p-4 rounded-2xl border border-amber-200 space-y-1 text-xs">
+                <h4 class="font-bold uppercase tracking-wide text-amber-800 text-[11px] flex items-center gap-1.5">
+                    <i class="fa-solid fa-phone-volume"></i> Emergency Contact (Auto-Alerted on SOS)
+                </h4>
+                <div class="text-slate-800 font-semibold" id="modal-emergency-contact">Marco Rostova (Brother) • +34 612 345 678</div>
+            </div>
+
+            <!-- Accommodation & Itinerary -->
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1 text-xs">
+                <h4 class="font-bold uppercase tracking-wide text-slate-700 text-[11px]">Registered Stay</h4>
+                <div class="text-slate-700" id="modal-accommodation">Haveli Heritage Resort, Room 204, Jaipur</div>
+            </div>
+
+            <!-- Location & Risk Status -->
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1 text-xs">
+                <h4 class="font-bold uppercase tracking-wide text-slate-700 text-[11px]">Current Sector & AI Threat Level</h4>
+                <div class="flex items-center justify-between">
+                    <span id="modal-zone" class="font-semibold text-slate-800">Johari & Bapu Bazaar</span>
+                    <span id="modal-risk-badge" class="px-2 py-0.5 rounded-full font-bold">Moderate Risk</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="pt-2 flex justify-end">
+            <button onclick="closeTouristModal()" class="py-2 px-5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl transition">
+                Close Snapshot
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- SOS ACTION MODAL (Acknowledge / Dispatch / Resolve) -->
+<div id="sos-action-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-fade-in text-xs">
+        <h3 class="text-base font-extrabold text-slate-900 mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved text-indigo-600"></i> Dispatch & Resolve SOS Beacon
+        </h3>
+        <p class="text-slate-500 mb-4" id="action-modal-sub">Update emergency event status and record field notes.</p>
+        
+        <input type="hidden" id="action-sos-id">
+        
+        <div class="space-y-3 mb-5">
+            <div>
+                <label class="block font-bold text-slate-700 mb-1 uppercase text-[11px]">Update Emergency Status</label>
+                <select id="action-sos-status" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold">
+                    <option value="acknowledged">🟡 Acknowledge (Assigning Officers)</option>
+                    <option value="dispatched">🚨 Dispatch (Response Squad En Route)</option>
+                    <option value="resolved">🟢 Resolve (Tourist Safe & Event Closed)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block font-bold text-slate-700 mb-1 uppercase text-[11px]">Command Notes</label>
+                <textarea id="action-sos-notes" rows="3" placeholder="e.g. Dispatched Unit 3 (Sub-Inspector Sharma) to Johari Bazaar Gate 2..." class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl"></textarea>
+            </div>
+        </div>
+
+        <div class="flex gap-2">
+            <button onclick="closeSOSActionModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition">
+                Cancel
+            </button>
+            <button onclick="submitSOSAction()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition shadow">
+                Save & Broadcast
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/authority_app.js') }}"></script>
+{% endblock %}
