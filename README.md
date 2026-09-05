@@ -1,13 +1,5 @@
 # SafeTrail — Tourist Safety & Regional Command Platform
 
-
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Online-10B981?style=for-the-badge&logo=render&logoColor=white)](https://tourist-safety-platform.onrender.com)
-[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/VVarsha28/tourist-safety-platform)
-[![Python Version](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![Framework](https://img.shields.io/badge/Flask-3.1-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
-
----
-
 ## 🌐 Live Deployed Application
 
 - **Live URL**: **[https://tourist-safety-platform.onrender.com](https://tourist-safety-platform.onrender.com)**
