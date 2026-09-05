@@ -2,6 +2,7 @@ services:
   - type: web
     name: tourist-safety-platform
     env: python
+    plan: free
     buildCommand: "pip install -r requirements.txt && python seed.py"
     startCommand: "gunicorn wsgi:app"
     envVars:
