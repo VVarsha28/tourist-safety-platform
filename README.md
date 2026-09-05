@@ -1,7 +1,32 @@
 # SafeTrail — Tourist Safety & Regional Command Platform
 **Nexora Round 2 Submission**
 
-SafeTrail is a full-stack dual-application safety platform built to provide proactive, location-aware safety support to tourists on mobile devices, and deliver real-time spatial surveillance and incident triage to regional safety authorities on desktop.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Online-10B981?style=for-the-badge&logo=render&logoColor=white)](https://tourist-safety-platform.onrender.com)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/VVarsha28/tourist-safety-platform)
+[![Python Version](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Framework](https://img.shields.io/badge/Flask-3.1-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
+
+---
+
+## 🌐 Live Deployed Application
+
+- **Live URL**: **[https://tourist-safety-platform.onrender.com](https://tourist-safety-platform.onrender.com)**
+- **Sign In / Demo Hub**: **[https://tourist-safety-platform.onrender.com/login](https://tourist-safety-platform.onrender.com/login)**
+- **Sample Public QR Verification Pass**: **[Verify Elena's Digital Pass](https://tourist-safety-platform.onrender.com/verify/ST-2026-ESP-4109)**
+
+> [!TIP]
+> **1-Click Demo Profiles**: On the sign-in page, click any of the 4 quick-switch buttons (Authority HQ, Elena, Carlos, Aarav) for instant zero-password testing!
+
+---
+
+## ⚡ Demo Accounts & Roles
+
+| Role / Profile | Email | Password | Scenario / Status |
+| :--- | :--- | :--- | :--- |
+| **Authority Command** | `authority@safetrail.gov` | `admin123` | Desktop operations center with live map, active SOS dispatch, and triage |
+| **Elena Rostova** | `elena@demo.com` | `tourist123` | Situated in **Johari Bazaar Caution Zone** — fires live geofence warning & AI score |
+| **Carlos Mendez** | `carlos@demo.com` | `tourist123` | Has an **Active SOS Emergency** beacon tracking live on the command map |
+| **Aarav Sharma** | `aarav@demo.com` | `tourist123` | Situated in **City Palace Safe Heritage Zone** with high 90+ safety score |
 
 ---
 
@@ -10,7 +35,7 @@ SafeTrail is a full-stack dual-application safety platform built to provide proa
 ### 1. Tourist Mobile Web App (`/tourist/`)
 - **Safety Profile & Snapshot**: Full passport details (masked in UI), blood group, allergies, pre-existing conditions, emergency contacts, and travel itinerary.
 - **Digital Tourist ID & Live QR Verification**:
-  - Official security pass with photo, unique ID code (e.g. `ST-2026-ESP-4109`), validity dates, and masked passport number.
+  - Official security pass with photo, unique ID code (e.g. `ST-2026-ESP-4109`), validity dates, and masked passport number (`****4109`).
   - High-contrast QR code pointing to public read-only verification page (`/verify/<tourist_id>`).
   - Full-screen view toggle and print/download button.
 - **Location-Based Safety & Interactive Leaflet Map**:
@@ -55,7 +80,7 @@ SafeTrail is a full-stack dual-application safety platform built to provide proa
 
 ---
 
-## 🚀 Quick Start Guide
+## 🚀 Local Development
 
 ### Prerequisites
 - Python 3.10+ (tested on Python 3.12)
@@ -73,26 +98,14 @@ This seeds:
 - 3 City Zones (Safe, Caution, Restricted)
 - 5 Safety POIs (Hospitals, Police HQ, Consular Liaison)
 - 1 Authority Command user (`authority@safetrail.gov` / `admin123`)
-- 3 Preloaded Tourist accounts:
-  - **Elena Rostova** (`elena@demo.com` / `tourist123`) — inside Caution Zone (triggers alert)
-  - **Carlos Mendez** (`carlos@demo.com` / `tourist123`) — with an active SOS emergency beacon
-  - **Aarav Sharma** (`aarav@demo.com` / `tourist123`) — inside Safe Zone
+- 3 Preloaded Tourist accounts (Elena, Carlos, Aarav)
 - Pre-populated incidents in triage queue
 
-### 3. Run the Platform
+### 3. Run Locally
 ```bash
 py -3.12 app.py
 ```
-Open **http://127.0.0.1:5000** in your browser.
-
----
-
-## ⚡ Fast 1-Click Demo Profiles (For Judges & Evaluators)
-On the login screen (`/login`), click any of the 4 quick-switch buttons:
-1. **Authority HQ**: Inspect live surveillance map, active Carlos SOS beacon, and incident triage.
-2. **Elena (Caution Zone)**: Experience live caution zone alert, safety score calculation, and AI chat.
-3. **Carlos (Active SOS)**: View the active emergency tracking screen from the tourist's perspective.
-4. **Aarav (Safe Zone)**: View calm status with high 90+ safety score in the heritage corridor.
+Open **`http://127.0.0.1:5000`** in your browser.
 
 ---
 
